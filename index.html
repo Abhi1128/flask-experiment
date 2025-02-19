@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Hindi Word Rating</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>हिन्दी शब्द रेटिंग</h1>
+  
+  <!-- Container for the current word and rating options -->
+  <div id="ratingContainer">
+    <h2 id="progressText"></h2>
+    <h3 id="wordText"></h3>
+    
+    <div class="rating-group">
+      <p><strong>Valence (1 = नकारात्मक, 5 = सकारात्मक):</strong></p>
+      <div id="valenceRadios"></div>
+    </div>
+
+    <div class="rating-group">
+      <p><strong>Arousal (1 = शांत, 5 = अत्यधिक उत्साहित):</strong></p>
+      <div id="arousalRadios"></div>
+    </div>
+
+    <div class="rating-group">
+      <p><strong>Familiarity (1 = अपरिचित, 5 = बहुत परिचित):</strong></p>
+      <div id="familiarityRadios"></div>
+    </div>
+
+    <div class="rating-group">
+      <p><strong>Frequency (1 = कभी नहीं, 5 = बहुत बार):</strong></p>
+      <div id="frequencyRadios"></div>
+    </div>
+    
+    <!-- Navigation Buttons -->
+    <button id="nextButton" onclick="handleNext()">Next</button>
+    <button id="submitButton" onclick="handleSubmit()" style="display:none;">Submit</button>
+  </div>
+
+  <script>
+    // Load words from Flask
+    const words = {{ words|tojson }};
+    let currentIndex = 0;
+
+    // This array will store the user ratings for all words
+    let ratingData = [];
+
+    // On page load, show the first word
+    window.onload = function() {
+      showWord(currentIndex);
+    };
+
+    // Show the word at 'currentIndex' along with radio buttons
+    function showWord(index) {
+      // Update progress text (e.g., "Word 1 of 60")
+      document.getElementById("progressText").textContent = 
+        `शब्द ${index + 1} / ${words.length}`;
+      
+      // Show the current word
+      document.getElementById("wordText").textContent = words[index];
+      
+      // Create radio buttons for Valence, Arousal, Familiarity, Frequency
+      createRadioGroup("valenceRadios", "valence");
+      createRadioGroup("arousalRadios", "arousal");
+      createRadioGroup("familiarityRadios", "familiarity");
+      createRadioGroup("frequencyRadios", "frequency");
+      
+      // If we're on the last word, hide "Next" and show "Submit"
+      if (index === words.length - 1) {
+        document.getElementById("nextButton").style.display = "none";
+        document.getElementById("submitButton").style.display = "inline-block";
+      } else {
+        document.getElementById("nextButton").style.display = "inline-block";
+        document.getElementById("submitButton").style.display = "none";
+      }
+    }
+
+    // Function to create a group of 5 radio buttons (1 to 5)
+    function createRadioGroup(divId, groupName) {
+      let container = document.getElementById(divId);
+      container.innerHTML = ""; // Clear previous
+      for (let i = 1; i <= 5; i++) {
+        let radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = groupName;
+        radio.value = i;
+        radio.required = true;
+
+        let label = document.createElement("label");
+        label.textContent = i + " ";
+        
+        container.appendChild(radio);
+        container.appendChild(label);
+      }
+    }
+
+    // Handle "Next" button click
+    function handleNext() {
+      // Get the selected values for the current word
+      let valence = getSelectedValue("valence");
+      let arousal = getSelectedValue("arousal");
+      let familiarity = getSelectedValue("familiarity");
+      let frequency = getSelectedValue("frequency");
+
+      // If any category is not selected, show an alert
+      if (!valence || !arousal || !familiarity || !frequency) {
+        alert("कृपया सभी श्रेणियों के लिए रेटिंग चुनें!");
+        return;
+      }
+
+      // Store the current word's ratings
+      ratingData.push({
+        "Word": words[currentIndex],
+        "Valence": valence,
+        "Arousal": arousal,
+        "Familiarity": familiarity,
+        "Frequency": frequency
+      });
+
+      // Move to the next word
+      currentIndex++;
+      showWord(currentIndex);
+    }
+
+    // Function to get the selected radio button value
+    function getSelectedValue(groupName) {
+      let radios = document.getElementsByName(groupName);
+      for (let radio of radios) {
+        if (radio.checked) {
+          return radio.value;
+        }
+      }
+      return null;
+    }
+
+    // Handle "Submit" button click (after the last word)
+    function handleSubmit() {
+      // Capture the final word's rating if needed
+      let valence = getSelectedValue("valence");
+      let arousal = getSelectedValue("arousal");
+      let familiarity = getSelectedValue("familiarity");
+      let frequency = getSelectedValue("frequency");
+
+      if (!valence || !arousal || !familiarity || !frequency) {
+        alert("कृपया सभी श्रेणियों के लिए रेटिंग चुनें!");
+        return;
+      }
+      ratingData.push({
+        "Word": words[currentIndex],
+        "Valence": valence,
+        "Arousal": arousal,
+        "Familiarity": familiarity,
+        "Frequency": frequency
+      });
+
+      // Send all data to the Flask server
+      fetch("/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ratingData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        alert(data.message); // e.g., "Data saved successfully as data_20240219_123456.csv"
+        // Optionally, redirect or reset the form
+      })
+      .catch(error => console.error("Error:", error));
+    }
+  </script>
+</body>
+</html>
